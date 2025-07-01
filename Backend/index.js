@@ -16,27 +16,61 @@ const db = mysql.createPool({
   database: process.env.DB_NAME,
 });
 
+// Walidatory
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+function isStrongPassword(password) {
+  const lengthValid = password.length >= 8;
+  const hasUppercase = /[A-Z]/.test(password);
+  const hasSpecialChar = /[^a-zA-Z0-9]/.test(password);
+  return lengthValid && hasUppercase && hasSpecialChar;
+}
+
+
 // Rejestracja
 app.post("/register", async (req, res) => {
   const { email, password } = req.body;
+
+  if(!email || !password){
+    return res.status(400).json({ error: "Email i hasło są wymagane."});
+  }
+  if(!isValidEmail(email)){
+    return res.status(400).json({ error: "Niepoprawny format adresu email."});
+  }
+  if (!isStrongPassword(password)){
+    return res.status(400).json({error: "Hasło musi mieć min. 8 znaków, jedną dużą literę i znak specjalny." });
+  }
+
   try {
     const hash = await bcrypt.hash(password, 10);
     await db.query("INSERT INTO users (email, password) VALUES (?, ?)", [email, hash]);
-    res.json({ success: true });
+    res.json({ success: true, message: "Konto zostało utworzone." });
   } catch (err) {
-    res.status(400).json({ error: "Email already exists" });
+    if (err.code === "ER_DUP_ENTRY") {
+      res.status(400).json({ error: "Użytkownik z tym adresem email już istnieje." });
+    } else {
+      res.status(500).json({ error: "Błąd serwera." });
+    }
   }
 });
 
 // Logowanie
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
+
+  if (!email || !password){
+    return res.status(400).json({ error: "Email i hasło są wymagane." });
+  }
+
   const [rows] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
   const user = rows[0];
-  if (!user) return res.status(400).json({ error: "User not found" });
+  if (!user) return res.status(400).json({ error: "Nie znaleziono uytkownika." });
 
   const match = await bcrypt.compare(password, user.password);
-  if (!match) return res.status(401).json({ error: "Wrong password" });
+  if (!match) return res.status(401).json({ error: "Niepoprawne hasło." });
 
   const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET);
   res.json({ token });
@@ -45,13 +79,21 @@ app.post("/login", async (req, res) => {
 // Zmiana hasła
 app.post("/change-password", async (req, res) => {
   const { token, newPassword } = req.body;
+
+  if (!newPassword){
+    return res.status(400).json({ error: "Nowe hasło jest wymagane." });
+  }
+  if (!isStrongPassword(newPassword)){
+    return res.status(400).json({ error: "Nowe hasło musi mieć min. 8 znaków, dużą literę i znak specjalny." });
+  }
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const hash = await bcrypt.hash(newPassword, 10);
     await db.query("UPDATE users SET password = ? WHERE id = ?", [hash, decoded.id]);
-    res.json({ success: true });
+    res.json({ success: true, message: "Hasło zostało zmienione." });
   } catch {
-    res.status(401).json({ error: "Invalid token" });
+    res.status(401).json({ error: "Nieprawidłowy token." });
   }
 });
 
@@ -61,9 +103,9 @@ app.post("/delete-account", async (req, res) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     await db.query("DELETE FROM users WHERE id = ?", [decoded.id]);
-    res.json({ success: true });
+    res.json({ success: true, message: "Konto zostało usunięte." });
   } catch {
-    res.status(401).json({ error: "Invalid token" });
+    res.status(401).json({ error: "Nieprawidłowy token." });
   }
 });
 
