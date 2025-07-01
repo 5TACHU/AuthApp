@@ -107,6 +107,7 @@ class AuthViewModel: ObservableObject {
                 DispatchQueue.main.async {
                     self.token = token
                     self.isLoggedIn = true
+                    self.showSuccess("Zalogowano.")
                 }
             }
         }.resume()

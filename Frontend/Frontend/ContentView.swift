@@ -14,7 +14,7 @@ struct ContentView: View {
         NavigationStack{
             if auth.isLoggedIn{
                 MainView()
-            }else{
+            } else {
                 LoginView()
             }
         }

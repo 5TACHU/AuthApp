@@ -67,7 +67,7 @@ app.post("/login", async (req, res) => {
 
   const [rows] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
   const user = rows[0];
-  if (!user) return res.status(400).json({ error: "Nie znaleziono uytkownika." });
+  if (!user) return res.status(400).json({ error: "Nie znaleziono użytkownika." });
 
   const match = await bcrypt.compare(password, user.password);
   if (!match) return res.status(401).json({ error: "Niepoprawne hasło." });
@@ -103,7 +103,7 @@ app.post("/delete-account", async (req, res) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     await db.query("DELETE FROM users WHERE id = ?", [decoded.id]);
-    res.json({ success: true, message: "Konto zostało usunięte." });
+    res.json({ success: true, message: "Konto zostało utworzone." });
   } catch {
     res.status(401).json({ error: "Nieprawidłowy token." });
   }
