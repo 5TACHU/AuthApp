@@ -33,6 +33,9 @@ struct LoginView: View {
                 }
             }
             .padding()
+            .alert(isPresented: $auth.showAlert) {
+                Alert(title: Text("Informacja"), message: Text(auth.message), dismissButton: .default(Text("OK")))
+            }
             .navigationDestination(for: String.self) { route in
                 if route == "register" {
                     RegisterView()

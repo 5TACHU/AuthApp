@@ -17,6 +17,9 @@ class AuthViewModel: ObservableObject {
             }
         }
     }
+    
+    @Published var message: String = ""
+    @Published var showAlert = false
 
     private let baseURL = "http://localhost:3000"
 
@@ -24,8 +27,40 @@ class AuthViewModel: ObservableObject {
         self.token = UserDefaults.standard.string(forKey: "authToken")
         self.isLoggedIn = token != nil
     }
+    
+    private func handleResponse(data: Data?, response: URLResponse?, error: Error?) -> String? {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            return "Brak odpowiedzi serwera."
+        }
+
+        if httpResponse.statusCode != 200 {
+            if let data = data,
+               let json = try? JSONDecoder().decode([String: String].self, from: data),
+               let errorMessage = json["error"] {
+                return errorMessage
+            } else {
+                return "Wystąpił błąd: \(httpResponse.statusCode)"
+            }
+        }
+            return nil
+        }
 
     func register(email: String, password: String) {
+        guard !email.isEmpty && !password.isEmpty else {
+            showError("Email i hasło są wymagane.")
+            return
+        }
+
+        guard isValidEmail(email) else {
+            showError("Niepoprawny adres email.")
+            return
+        }
+
+        guard isStrongPassword(password) else {
+            showError("Hasło musi mieć min. 8 znaków, 1 wielką literę i 1 znak specjalny.")
+            return
+        }
+        
         guard let url = URL(string: "\(baseURL)/register") else { return }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -34,11 +69,17 @@ class AuthViewModel: ObservableObject {
         let body = ["email": email, "password": password]
         request.httpBody = try? JSONEncoder().encode(body)
 
-        URLSession.shared.dataTask(with: request) { _, response, _ in
-            DispatchQueue.main.async {
-                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
-                    self.login(email: email, password: password)
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let errorMsg = self.handleResponse(data: data, response: response, error: error) {
+                DispatchQueue.main.async {
+                    self.showError(errorMsg)
                 }
+                return
+            }
+
+            DispatchQueue.main.async {
+                self.login(email: email, password: password)
+                self.showSuccess("Konto utworzone.")
             }
         }.resume()
     }
@@ -52,7 +93,14 @@ class AuthViewModel: ObservableObject {
         let body = ["email": email, "password": password]
         request.httpBody = try? JSONEncoder().encode(body)
 
-        URLSession.shared.dataTask(with: request) { data, _, _ in
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let errorMsg = self.handleResponse(data: data, response: response, error: error) {
+                DispatchQueue.main.async {
+                    self.showError(errorMsg)
+                }
+                return
+            }
+
             if let data = data,
                let result = try? JSONDecoder().decode([String: String].self, from: data),
                let token = result["token"] {
@@ -68,6 +116,11 @@ class AuthViewModel: ObservableObject {
         guard let url = URL(string: "\(baseURL)/change-password"),
               let token = token else { return }
 
+        guard isStrongPassword(newPassword) else {
+            showError("Hasło musi mieć min. 8 znaków, 1 wielką literę i 1 znak specjalny.")
+            return
+        }
+        
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -75,7 +128,18 @@ class AuthViewModel: ObservableObject {
         let body = ["token": token, "newPassword": newPassword]
         request.httpBody = try? JSONEncoder().encode(body)
 
-        URLSession.shared.dataTask(with: request).resume()
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let errorMsg = self.handleResponse(data: data, response: response, error: error) {
+                DispatchQueue.main.async {
+                    self.showError(errorMsg)
+                }
+                return
+            }
+
+            DispatchQueue.main.async {
+                self.showSuccess("Hasło zostało zmienione.")
+            }
+        }.resume()
     }
 
     func deleteAccount() {
@@ -89,16 +153,45 @@ class AuthViewModel: ObservableObject {
         let body = ["token": token]
         request.httpBody = try? JSONEncoder().encode(body)
 
-        URLSession.shared.dataTask(with: request) { _, _, _ in
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let errorMsg = self.handleResponse(data: data, response: response, error: error) {
+                DispatchQueue.main.async {
+                    self.showError(errorMsg)
+                }
+                return
+            }
+
             DispatchQueue.main.async {
-                self.token = nil
-                self.isLoggedIn = false
+                self.logout()
+                self.showSuccess("Konto zostało usunięte.")
             }
         }.resume()
     }
 
+    
     func logout() {
         self.token = nil
         self.isLoggedIn = false
     }
+    
+    private func showError(_ message: String) {
+        self.message = message
+        self.showAlert = true
+    }
+
+    private func showSuccess(_ message: String) {
+        self.message = message
+        self.showAlert = true
+    }
+
+    private func isValidEmail(_ email: String) -> Bool {
+        let regex = #"^[^\s@]+@[^\s@]+\.[^\s@]+$"#
+        return email.range(of: regex, options: .regularExpression) != nil
+    }
+
+    private func isStrongPassword(_ password: String) -> Bool {
+        let regex = #"^(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$"#
+        return password.range(of: regex, options: .regularExpression) != nil
+    }
+    
 }

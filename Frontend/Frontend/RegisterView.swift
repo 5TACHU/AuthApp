@@ -26,5 +26,8 @@ struct RegisterView: View {
             }
         }
         .padding()
+        .alert(isPresented: $auth.showAlert) {
+            Alert(title: Text("Informacja"), message: Text(auth.message), dismissButton: .default(Text("OK")))
+        }
     }
 }
