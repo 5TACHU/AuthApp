@@ -107,7 +107,6 @@ class AuthViewModel: ObservableObject {
                 DispatchQueue.main.async {
                     self.token = token
                     self.isLoggedIn = true
-                    self.showSuccess("Zalogowano.")
                 }
             }
         }.resume()
@@ -123,7 +122,7 @@ class AuthViewModel: ObservableObject {
         }
         
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        request.httpMethod = "PATCH"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body = ["token": token, "newPassword": newPassword]
@@ -148,7 +147,7 @@ class AuthViewModel: ObservableObject {
               let token = token else { return }
 
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        request.httpMethod = "DELETE"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body = ["token": token]

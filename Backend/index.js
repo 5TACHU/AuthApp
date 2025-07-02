@@ -77,7 +77,7 @@ app.post("/login", async (req, res) => {
 });
 
 // Zmiana hasła
-app.post("/change-password", async (req, res) => {
+app.patch("/change-password", async (req, res) => {
   const { token, newPassword } = req.body;
 
   if (!newPassword){
@@ -98,7 +98,7 @@ app.post("/change-password", async (req, res) => {
 });
 
 // Usunięcie konta
-app.post("/delete-account", async (req, res) => {
+app.delete("/delete-account", async (req, res) => {
   const { token } = req.body;
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
